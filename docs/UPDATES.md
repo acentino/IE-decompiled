@@ -174,3 +174,34 @@ winget install --id Kitware.CMake --exact --source winget
 Restart the launcher afterward. A Visual Studio-specific build uses its
 own `build/windows-vs2022` or `build/windows-vs2026` directory; previous
 failed configurations under `build/` can remain untouched.
+
+## Windows 10 has no `winget`
+
+`winget` is optional. If CMD prints
+`'winget' n’est pas reconnu ...`, install Visual Studio C++ tools
+directly from Microsoft instead:
+
+- Open https://visualstudio.microsoft.com/vs/older-downloads/
+  and select **Build Tools for Visual Studio 2022**.
+- Or open the Microsoft VS 2022 bootstrapper URL directly:
+  https://aka.ms/vs/17/release/vs_BuildTools.exe
+- Run the downloaded installer, select **Desktop development with C++**
+  (C++ compiler/MSVC, Windows SDK, MSBuild), and finish the installation.
+
+Alternatively, in Windows CMD, use the built-in curl executable (if present)
+to download the official bootstrapper, then start the normal installer:
+
+```bat
+curl.exe --fail --location --output "%TEMP%\vs_BuildTools.exe" "https://aka.ms/vs/17/release/vs_BuildTools.exe"
+"%TEMP%\vs_BuildTools.exe" --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended
+```
+
+Run the second command only if the download succeeded and confirm that it is
+Microsoft's signed installer. User approval / UAC may be required. This installs
+the compiler tools; the runtime redistributable alone is not sufficient.
+If VS Build Tools already exists, use **Visual Studio Installer > Modify**
+rather than attempting to install a second instance.
+
+After installation, close and reopen CMD, then launch `Start-IE.cmd`.
+The launcher now detects when winget is missing, offers to open the official
+download page in a browser, and chooses a Visual Studio generator when possible.
