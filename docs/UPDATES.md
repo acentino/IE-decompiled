@@ -90,3 +90,31 @@ git pull --ff-only origin main
 Then run `Start-IE.cmd` again. If Git refuses to pull because you have
 uncommitted edits or divergent history, preserve those changes rather than
 resetting or force-pulling; inspect with `git status` first.
+
+## Git fetch fails with `reference already exists` for `origin/main`
+
+On some local Git installations, fetching can download all objects but fail
+while updating `refs/remotes/origin/main`:
+
+```
+error: fetching ref refs/remotes/origin/main failed: reference already exists
+```
+
+The launcher now bypasses that remote-tracking ref with
+`git fetch --quiet --no-tags --refmap= origin refs/heads/main`,
+then applies a fast-forward-only merge using `FETCH_HEAD`. The `--refmap=`
+option prevents configured tracking refspecs from rewriting `origin/main`.
+`git ls-remote` still checks the actual remote branch before prompting.
+
+For **one-time recovery** from an older launcher, run these in CMD from the
+existing repository directory:
+
+```bat
+git fetch --no-tags --refmap= origin refs/heads/main
+git merge --ff-only FETCH_HEAD
+```
+
+These commands do not reset local commits or overwrite uncommitted work. A
+non-fast-forward or conflicting local modification will cause the merge to
+stop; inspect `git status` instead of forcing it. The problematic tracking
+ref can remain stale, but the launcher no longer needs it for update checks.
