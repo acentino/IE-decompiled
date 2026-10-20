@@ -158,3 +158,19 @@ git merge --ff-only FETCH_HEAD
 
 The newer launcher says `Fetching GitHub main without modifying origin/main...`
 and uses the safe command automatically after the next successful update.
+
+### CMake executable selection
+
+The launcher prefers `C:\Program Files\CMake\bin\cmake.exe` if installed,
+then the CMake bundled with an installed Visual Studio C++ toolchain, then
+`cmake` from PATH. This prevents Git Bash/MSYS CMake from silently choosing
+an incompatible generator. If the Visual Studio C++ workload is installed
+but no matching generator is available, install native CMake:
+
+```bat
+winget install --id Kitware.CMake --exact --source winget
+```
+
+Restart the launcher afterward. A Visual Studio-specific build uses its
+own `build/windows-vs2022` or `build/windows-vs2026` directory; previous
+failed configurations under `build/` can remain untouched.
