@@ -98,9 +98,16 @@ if (-not (Has-Command cmake)) {
 
 $buildDir = Join-Path $repoRoot 'build'
 Write-Host 'Configuring and building the native tool...'
-& cmake -S $repoRoot -B $buildDir -A x64
-if ($LASTEXITCODE -ne 0) { Write-Error 'CMake configure failed.'; exit 1 }
-& cmake --build $buildDir --config Release
+# Always use paths relative to the repository directory: Git Bash/MSYS CMake can
+# mistakenly interpret E:/... as a relative Unix path and concatenate both paths.
+# Don't force -A x64: that option is unsupported by Ninja/Make generators.
+& cmake -S . -B build
+if ($LASTEXITCODE -ne 0) {
+    Write-Warning 'If a previous CMake generator was cached, delete only the build folder and retry.'
+    Write-Error 'CMake configure failed.'
+    exit 1
+}
+& cmake --build build --config Release
 if ($LASTEXITCODE -ne 0) { Write-Error 'Build failed; no older executable will be launched.'; exit 1 }
 
 $executable = Join-Path $buildDir 'Release\ie1_romtool.exe'
