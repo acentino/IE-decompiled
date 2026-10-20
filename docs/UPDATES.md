@@ -118,3 +118,43 @@ These commands do not reset local commits or overwrite uncommitted work. A
 non-fast-forward or conflicting local modification will cause the merge to
 stop; inspect `git status` instead of forcing it. The problematic tracking
 ref can remain stale, but the launcher no longer needs it for update checks.
+
+## CMake cannot find `CMAKE_CXX_COMPILER`
+
+This means no usable C++ compiler was detected by the selected CMake
+generator. A CMake installation **alone** cannot compile this project.
+
+The launcher now detects installed Visual Studio C++ Build Tools through
+`vswhere`, chooses a matching Visual Studio generator (VS 2022 or VS 2026),
+and uses a separate cache under `build/windows-vs2022` or
+`build/windows-vs2026`. This avoids mixing an earlier failed MSYS/Makefiles
+cache with a Visual Studio project. The launcher never silently installs
+system-level software.
+
+If you do not have the C++ workload installed, use Visual Studio Installer
+and add **Desktop development with C++**, or for a fresh VS 2022 Build Tools
+installation run the following in Windows CMD:
+
+```bat
+winget install --id Microsoft.VisualStudio.2022.BuildTools --exact --source winget --override "--passive --wait --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended"
+```
+
+Close the launcher and reopen it after setup. If Build Tools already exists,
+`winget install` may not add the workload; use Visual Studio Installer's
+**Modify** action. If using GCC/Clang instead, put both the compiler and
+matching build tools on PATH before launching. A Visual Studio generator
+also requires a compatible CMake executable whose `cmake --help` lists it.
+
+### One-time recovery of updates from the previously broken updater
+
+An older launcher may still display `Fetching verified origin/main...`
+then `Fetch failed`. Recover from CMD in the existing checkout without
+updating the corrupted remote tracking ref:
+
+```bat
+git fetch --no-tags --refmap= origin refs/heads/main
+git merge --ff-only FETCH_HEAD
+```
+
+The newer launcher says `Fetching GitHub main without modifying origin/main...`
+and uses the safe command automatically after the next successful update.
