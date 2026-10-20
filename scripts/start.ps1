@@ -16,8 +16,15 @@ function Has-Command([string]$name) {
     return $null -ne (Get-Command $name -ErrorAction SilentlyContinue)
 }
 function Invoke-Git([string[]]$gitArgs) {
+    # Windows PowerShell 5.1 turns Git's ordinary stderr progress output (e.g.
+    # "From https://github.com/...") into non-terminating PowerShell errors.
+    # With script-wide ErrorActionPreference='Stop', that aborts an otherwise
+    # successful fetch before we can check Git's actual exit status.
+    # Keep the override scoped to this function and always check LASTEXITCODE.
+    $ErrorActionPreference = 'Continue'
     $out = & git -C $repoRoot @gitArgs 2>$null
-    return @{ Output = @($out | Where-Object { $null -ne $_ -and [string]$_ -ne '' }); ExitCode = $LASTEXITCODE }
+    $gitExitCode = $LASTEXITCODE
+    return @{ Output = @($out | Where-Object { $null -ne $_ -and [string]$_ -ne '' }); ExitCode = $gitExitCode }
 }
 function Ask-To-Update([string]$sha) {
     $message = "An update to IE-decompiled is available on GitHub (main: $($sha.Substring(0, 8))).`n`nUpdate your local source and rebuild before launching?"
@@ -58,7 +65,7 @@ if ((Test-Path -LiteralPath (Join-Path $repoRoot '.git')) -and (Has-Command git)
                         Write-Warning 'Uncommitted changes detected. Stopping the update to protect your work.'
                     } else {
                         Write-Host 'Fetching verified origin/main...'
-                        $fetch = Invoke-Git -gitArgs @('fetch', '--no-tags', 'origin', 'main')
+                        $fetch = Invoke-Git -gitArgs @('fetch', '--quiet', '--no-tags', 'origin', 'main')
                         if ($fetch.ExitCode -ne 0) {
                             Write-Warning 'Fetch failed. Continuing with local source.'
                         } else {
