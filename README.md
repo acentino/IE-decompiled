@@ -29,6 +29,16 @@ this launcher, not by double-clicking the compiled `ie1_romtool.exe`.
 
 See [docs/UPDATES.md](docs/UPDATES.md) for installation and safeguards.
 
+### First upload: browser-based GitHub sign-in
+
+Double-click **`Upload-to-GitHub.cmd`**. If GitHub CLI (`gh`) is missing, the uploader
+offers to install it using Windows `winget`. When authentication is required, it opens
+your browser using `gh auth login --web`; approve the login, then the existing local
+commit(s) will be pushed to `acentino/IE-decompiled`. You do **not** enter a GitHub
+password or paste a personal access token. The upload command overrides broken global
+Git credential helpers (including a missing `credential-manager`) without changing
+your local source history. If the CLI is already authenticated, it can reuse that session.
+
 ## Windows build (Visual Studio 2022, C++ tools + CMake)
 
 ```powershell

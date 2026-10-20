@@ -2,7 +2,23 @@
 
 For the first upload from an extracted project ZIP, double-click **`Upload-to-GitHub.cmd`**.
 It initializes Git if necessary, stages only project source/metadata (not the ROM),
-and pushes `main` after GitHub authentication. Never place game data in the repo.
+and pushes `main` using GitHub CLI's **browser authentication**, not a GitHub password.
+
+The upload script:
+
+1. Detects `gh` and offers to install GitHub CLI through Windows `winget` if necessary.
+2. If not signed in, starts `gh auth login --web --clipboard`, opening the GitHub sign-in
+   page and showing/copying the one-time device code.
+3. Configures `gh` as Git's credential helper and bypasses a broken global
+   `credential-manager` **for the upload command only**.
+4. Commits changed project files and pushes to `acentino/IE-decompiled` without
+   force-pushing or resetting your repository. Existing local commits are retained.
+
+If the login is already active, it is reused. If you have another GitHub account
+active, check the username shown in the upload window and switch accounts via
+`gh auth switch --hostname github.com --user acentino` before retrying.
+
+Never place game data in the repo.
 
 Use **`Start-IE.cmd`** as the entry point, not `build/Release/ie1_romtool.exe`.
 This is a developer utility: it does **not** launch the Nintendo DS game.
