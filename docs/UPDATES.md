@@ -55,3 +55,18 @@ This is a developer utility: it does **not** launch the Nintendo DS game.
 The launcher uses PowerShell 5.1 available on Windows. The GitHub update check and Windows message-box behavior still need to be exercised on a real Windows installation.
 
 To run the tool with no update check, launch `build/Release/ie1_romtool.exe` directly.
+
+## Fix for CMake errors with mixed `/e/...` and `E:/...` paths
+
+The Windows launcher now configures CMake from the repository root using
+`cmake -S . -B build`, which avoids accidental MSYS/Windows absolute-path
+concatenation. The launcher no longer forces `-A x64` on generators that
+don't support it.
+
+If you configured the project with the old script and receive a
+`CMakeCache.txt` generator mismatch, delete **only** the local `build`
+directory and launch `Start-IE.cmd` again. Never delete your source,
+`.git`, or your legally obtained game files.
+
+Note: you still need a working C++ compiler toolchain (Visual Studio C++
+Build Tools or a compatible MinGW toolchain).
