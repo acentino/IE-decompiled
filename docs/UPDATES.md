@@ -70,3 +70,23 @@ directory and launch `Start-IE.cmd` again. Never delete your source,
 
 Note: you still need a working C++ compiler toolchain (Visual Studio C++
 Build Tools or a compatible MinGW toolchain).
+
+## PowerShell 5.1: `git.exe : From https://github.com/...` during update
+
+Some Git for Windows versions print normal fetch information to **stderr**.
+Windows PowerShell 5.1 wraps native stderr as an error record; with
+`$ErrorActionPreference = 'Stop'`, the old launcher stopped immediately.
+The Git invocation now scopes error handling so only Git's **actual exit code**
+determines whether an operation succeeded, and fetch is run with `--quiet`.
+
+If you have the old launcher, it cannot fetch its own fix. **Once**, open
+PowerShell inside your existing Git checkout (the folder containing
+`Start-IE.cmd` and `.git`) and run:
+
+```powershell
+git pull --ff-only origin main
+```
+
+Then run `Start-IE.cmd` again. If Git refuses to pull because you have
+uncommitted edits or divergent history, preserve those changes rather than
+resetting or force-pulling; inspect with `git status` first.
