@@ -111,20 +111,36 @@ if (-not (Has-Command cmake)) {
 # Determine a working native C++ toolchain before running CMake. Some users have
 # MSYS CMake in PATH, which defaults to Makefiles and cannot discover a Visual
 # Studio installation automatically. Use VS generators when their C++ tools exist.
-$cmakeHelp = (& cmake --help 2>$null | Out-String)
 $vswhere = Join-Path ([Environment]::GetFolderPath('ProgramFilesX86')) 'Microsoft Visual Studio\Installer\vswhere.exe'
+# Prefer native Kitware CMake or the Visual Studio-bundled CMake over an MSYS
+# CMake on PATH, which may not offer any Visual Studio generators.
+$cmakeExecutable = (Get-Command cmake).Source
+$kitwareCmake = Join-Path $env:ProgramFiles 'CMake\bin\cmake.exe'
+if (Test-Path -LiteralPath $kitwareCmake) {
+    $cmakeExecutable = $kitwareCmake
+} elseif (Test-Path -LiteralPath $vswhere) {
+    $vsLocations = @(& $vswhere -latest -products '*' -requires 'Microsoft.VisualStudio.Component.VC.Tools.x86.x64' -property installationPath 2>$null)
+    if ($LASTEXITCODE -eq 0 -and $vsLocations.Count -gt 0 -and $vsLocations[0]) {
+        $vsBundledCmake = Join-Path ([string]$vsLocations[0]) 'Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe'
+        if (Test-Path -LiteralPath $vsBundledCmake) { $cmakeExecutable = $vsBundledCmake }
+    }
+}
+$cmakeHelp = (& $cmakeExecutable --help 2>$null | Out-String)
 $vsBuild = $null
+$vsToolsFound = $false
 if (Test-Path -LiteralPath $vswhere) {
     $versions = @(
         @{ Range = '[18.0,19.0)'; Generator = 'Visual Studio 18 2026'; Build = 'build/windows-vs2026' },
         @{ Range = '[17.0,18.0)'; Generator = 'Visual Studio 17 2022'; Build = 'build/windows-vs2022' }
     )
     foreach ($version in $versions) {
-        if (-not $cmakeHelp.Contains($version.Generator)) { continue }
         $vsInstall = @(& $vswhere -latest -products '*' -version $version.Range -requires 'Microsoft.VisualStudio.Component.VC.Tools.x86.x64' -property installationPath 2>$null)
         if ($LASTEXITCODE -eq 0 -and $vsInstall.Count -gt 0 -and $vsInstall[0]) {
-            $vsBuild = $version
-            break
+            $vsToolsFound = $true
+            if ($cmakeHelp.Contains($version.Generator)) {
+                $vsBuild = $version
+                break
+            }
         }
     }
 }
@@ -139,6 +155,12 @@ if ($null -ne $vsBuild) {
     $hasCxx = (Has-Command 'g++') -or (Has-Command 'clang++') -or (Has-Command 'cl')
     if (-not $hasCxx) {
         Write-Host ''
+        if ($vsToolsFound) {
+            Write-Host 'Visual Studio C++ tools are installed, but CMake does not expose a matching Visual Studio generator.' -ForegroundColor Yellow
+            Write-Host ('Selected CMake: ' + $cmakeExecutable)
+            Write-Host 'Install native Kitware CMake (winget install --id Kitware.CMake -e), then restart the launcher.'
+            exit 1
+        }
         Write-Host 'No C++ compiler was found for this Windows environment.' -ForegroundColor Yellow
         Write-Host 'Install Visual Studio 2022 Build Tools with the Desktop development with C++ workload.'
         Write-Host 'With winget (new installation):'
@@ -156,13 +178,13 @@ $buildDir = Join-Path $repoRoot $relativeBuild
 Write-Host 'Configuring and building the native tool...'
 # Always pass repo-relative paths: some MSYS versions of CMake treat E:/...
 # Windows paths as relative /e/... paths and generate an invalid source path.
-& cmake @cmakeArgs
+& $cmakeExecutable @cmakeArgs
 if ($LASTEXITCODE -ne 0) {
     Write-Warning 'CMake failed. If an older generator is cached, remove ONLY its build directory and retry.'
     Write-Error 'CMake configure failed.'
     exit 1
 }
-& cmake --build $relativeBuild --config Release
+& $cmakeExecutable --build $relativeBuild --config Release
 if ($LASTEXITCODE -ne 0) { Write-Error 'Build failed; no older executable will be launched.'; exit 1 }
 
 $executable = Join-Path $buildDir 'Release\ie1_romtool.exe'
