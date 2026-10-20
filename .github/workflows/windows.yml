@@ -1,0 +1,20 @@
+name: Build host-native Windows ROM tool
+on:
+  push:
+  workflow_dispatch:
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure
+        run: cmake -S . -B build -A x64
+      - name: Build
+        run: cmake --build build --config Release
+      - name: Verify executable starts without ROM
+        run: build/Release/ie1_romtool.exe --version
+      - name: Upload executable (no game data)
+        uses: actions/upload-artifact@v4
+        with:
+          name: ie1-romtool-windows-x64
+          path: build/Release/ie1_romtool.exe

@@ -1,0 +1,10 @@
+# Initial ndsrecomp title configuration; not a tested build.
+[game]
+sha1 = "7fd6dfbd3821b17e0f8dbbf0bcea151c659d2b52"
+
+[display]
+screen_layout = "stacked"
+adaptive_widescreen = "none"
+
+[system]
+startup_mode = "preserve"

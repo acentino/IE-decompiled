@@ -1,0 +1,21 @@
+/build/
+/input/
+/dumps/
+*.nds
+*.sav
+*.srl
+*.zip
+*.bin
+*.elf
+*.o
+*.obj
+*.exe
+*.dll
+*.pdb
+
+# Local, nonredistributable game material and private configuration
+*.cia
+*.3ds
+*.narc
+*.nds_*
+.env
