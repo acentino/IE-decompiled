@@ -64,8 +64,13 @@ if ((Test-Path -LiteralPath (Join-Path $repoRoot '.git')) -and (Has-Command git)
                     } elseif ($changes.ExitCode -ne 0 -or @($changes.Output).Count -gt 0) {
                         Write-Warning 'Uncommitted changes detected. Stopping the update to protect your work.'
                     } else {
-                        Write-Host 'Fetching verified origin/main...'
-                        $fetch = Invoke-Git -gitArgs @('fetch', '--quiet', '--no-tags', 'origin', 'main')
+                        Write-Host 'Fetching GitHub main without modifying origin/main...'
+                        # A stale/colliding refs/remotes/origin/main can make an otherwise
+                        # successful Git fetch fail with "reference already exists".
+                        # --refmap= overrides the configured remote-tracking mapping.
+                        # The explicit source-only refspec writes FETCH_HEAD, not
+                        # refs/remotes/origin/main; a later ff-only merge uses FETCH_HEAD.
+                        $fetch = Invoke-Git -gitArgs @('fetch', '--quiet', '--no-tags', '--refmap=', 'origin', 'refs/heads/main')
                         if ($fetch.ExitCode -ne 0) {
                             Write-Warning 'Fetch failed. Continuing with local source.'
                         } else {
