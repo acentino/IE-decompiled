@@ -162,10 +162,70 @@ if ($null -ne $vsBuild) {
             exit 1
         }
         Write-Host 'No C++ compiler was found for this Windows environment.' -ForegroundColor Yellow
-        Write-Host 'Install Visual Studio 2022 Build Tools with the Desktop development with C++ workload.'
-        Write-Host 'With winget (new installation):'
-        Write-Host '  winget install --id Microsoft.VisualStudio.2022.BuildTools --exact --source winget --override "--passive --wait --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended"'
-        Write-Host 'If already installed, use Visual Studio Installer > Modify to add the C++ workload.'
+        Write-Host 'Install Visual Studio 2022 Build Tools, selecting "Desktop development with C++".'
+        Write-Host 'Official Microsoft downloads: https://visualstudio.microsoft.com/vs/older-downloads/'
+        if (Has-Command 'winget') {
+            Write-Host 'Optional command line install:'
+            Write-Host '  winget install --id Microsoft.VisualStudio.2022.BuildTools --exact --source winget --override "--passive --wait --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended"'
+        } else {
+            Write-Host 'winget is not installed on this PC; it is NOT required.'
+            Write-Host 'Alternatively download the official bootstrapper from:'
+            Write-Host '  https://aka.ms/vs/17/release/vs_BuildTools.exe'
+        }
+        Write-Host 'If Build Tools is already installed, choose Modify in Visual Studio Installer to add C++.'
+        try {
+            $openInstaller = Read-Host 'Open Microsoft Build Tools download page in your browser? [y/N]'
+            if ($openInstaller -match '^(?i:y|yes|o|oui)
+    }
+    Write-Host 'Using compiler tools available on PATH.'
+    $relativeBuild = 'build'
+    $cmakeArgs = @('-S', '.', '-B', $relativeBuild)
+}
+$buildDir = Join-Path $repoRoot $relativeBuild
+
+Write-Host 'Configuring and building the native tool...'
+# Always pass repo-relative paths: some MSYS versions of CMake treat E:/...
+# Windows paths as relative /e/... paths and generate an invalid source path.
+& $cmakeExecutable @cmakeArgs
+if ($LASTEXITCODE -ne 0) {
+    Write-Warning 'CMake failed. If an older generator is cached, remove ONLY its build directory and retry.'
+    Write-Error 'CMake configure failed.'
+    exit 1
+}
+& $cmakeExecutable --build $relativeBuild --config Release
+if ($LASTEXITCODE -ne 0) { Write-Error 'Build failed; no older executable will be launched.'; exit 1 }
+
+$executable = Join-Path $buildDir 'Release\ie1_romtool.exe'
+if (-not (Test-Path -LiteralPath $executable)) {
+    $executable = Join-Path $buildDir 'ie1_romtool.exe'
+}
+if (-not (Test-Path -LiteralPath $executable)) {
+    Write-Error 'Build completed but ie1_romtool.exe is missing.'
+    exit 1
+}
+
+if (-not $ToolArgs -or $ToolArgs.Count -eq 0) {
+    $romDir = Join-Path $repoRoot 'input'
+    $roms = @(Get-ChildItem -LiteralPath $romDir -Filter '*.nds' -File -ErrorAction SilentlyContinue)
+    if ($roms.Count -eq 1) {
+        $ToolArgs = @($roms[0].FullName, 'info')
+    } else {
+        Write-Host ''
+        Write-Host 'Build succeeded. This is a ROM analysis utility, NOT a playable PC port.'
+        Write-Host 'Put one legally obtained .nds file into input\, or pass a ROM path:'
+        Write-Host '  Start-IE.cmd "C:\path\game.nds" info'
+        Write-Host '  Start-IE.cmd "C:\path\game.nds" check-overlays'
+        exit 0
+    }
+}
+& $executable @ToolArgs
+exit $LASTEXITCODE
+) {
+                Start-Process 'https://visualstudio.microsoft.com/vs/older-downloads/'
+            }
+        } catch {
+            Write-Warning 'Could not open the browser. Use the Microsoft URL shown above.'
+        }
         Write-Host 'After installation, restart this launcher.'
         exit 1
     }
