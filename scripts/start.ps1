@@ -108,18 +108,61 @@ if (-not (Has-Command cmake)) {
     exit 1
 }
 
-$buildDir = Join-Path $repoRoot 'build'
+# Determine a working native C++ toolchain before running CMake. Some users have
+# MSYS CMake in PATH, which defaults to Makefiles and cannot discover a Visual
+# Studio installation automatically. Use VS generators when their C++ tools exist.
+$cmakeHelp = (& cmake --help 2>$null | Out-String)
+$vswhere = Join-Path ([Environment]::GetFolderPath('ProgramFilesX86')) 'Microsoft Visual Studio\Installer\vswhere.exe'
+$vsBuild = $null
+if (Test-Path -LiteralPath $vswhere) {
+    $versions = @(
+        @{ Range = '[18.0,19.0)'; Generator = 'Visual Studio 18 2026'; Build = 'build/windows-vs2026' },
+        @{ Range = '[17.0,18.0)'; Generator = 'Visual Studio 17 2022'; Build = 'build/windows-vs2022' }
+    )
+    foreach ($version in $versions) {
+        if (-not $cmakeHelp.Contains($version.Generator)) { continue }
+        $vsInstall = @(& $vswhere -latest -products '*' -version $version.Range -requires 'Microsoft.VisualStudio.Component.VC.Tools.x86.x64' -property installationPath 2>$null)
+        if ($LASTEXITCODE -eq 0 -and $vsInstall.Count -gt 0 -and $vsInstall[0]) {
+            $vsBuild = $version
+            break
+        }
+    }
+}
+
+if ($null -ne $vsBuild) {
+    Write-Host ('Using ' + $vsBuild.Generator + ' C++ toolchain.')
+    $relativeBuild = $vsBuild.Build
+    $cmakeArgs = @('-S', '.', '-B', $relativeBuild, '-G', $vsBuild.Generator, '-A', 'x64')
+} else {
+    # For MinGW/Clang setups with a compiler on PATH, let the local CMake
+    # installation select the default generator as before.
+    $hasCxx = (Has-Command 'g++') -or (Has-Command 'clang++') -or (Has-Command 'cl')
+    if (-not $hasCxx) {
+        Write-Host ''
+        Write-Host 'No C++ compiler was found for this Windows environment.' -ForegroundColor Yellow
+        Write-Host 'Install Visual Studio 2022 Build Tools with the Desktop development with C++ workload.'
+        Write-Host 'With winget (new installation):'
+        Write-Host '  winget install --id Microsoft.VisualStudio.2022.BuildTools --exact --source winget --override "--passive --wait --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended"'
+        Write-Host 'If already installed, use Visual Studio Installer > Modify to add the C++ workload.'
+        Write-Host 'After installation, restart this launcher.'
+        exit 1
+    }
+    Write-Host 'Using compiler tools available on PATH.'
+    $relativeBuild = 'build'
+    $cmakeArgs = @('-S', '.', '-B', $relativeBuild)
+}
+$buildDir = Join-Path $repoRoot $relativeBuild
+
 Write-Host 'Configuring and building the native tool...'
-# Always use paths relative to the repository directory: Git Bash/MSYS CMake can
-# mistakenly interpret E:/... as a relative Unix path and concatenate both paths.
-# Don't force -A x64: that option is unsupported by Ninja/Make generators.
-& cmake -S . -B build
+# Always pass repo-relative paths: some MSYS versions of CMake treat E:/...
+# Windows paths as relative /e/... paths and generate an invalid source path.
+& cmake @cmakeArgs
 if ($LASTEXITCODE -ne 0) {
-    Write-Warning 'If a previous CMake generator was cached, delete only the build folder and retry.'
+    Write-Warning 'CMake failed. If an older generator is cached, remove ONLY its build directory and retry.'
     Write-Error 'CMake configure failed.'
     exit 1
 }
-& cmake --build build --config Release
+& cmake --build $relativeBuild --config Release
 if ($LASTEXITCODE -ne 0) { Write-Error 'Build failed; no older executable will be launched.'; exit 1 }
 
 $executable = Join-Path $buildDir 'Release\ie1_romtool.exe'
